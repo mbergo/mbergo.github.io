@@ -1,0 +1,36 @@
+<html>
+    <body><script defer src="https://fiddle.fastly.dev/embed.js"></script>
+        <script type="application/json+fiddle">
+            {
+              "title": "Ticketmaster - Challenge",
+              "type": "vcl",
+              "origins": [
+                "https://http-me.glitch.me",
+                "https://http-me.glitch.me",
+                "https://http-me.glitch.me"
+              ],
+              "src": {
+                "init": "#",
+                "recv": "    #FASTLY recv\n\n     // Simulate a director with three backends\n    declare local var.backend_id INTEGER;\n    set var.backend_id = randomint(1, 3);\n    \n    if (var.backend_id == 1) {\n        set req.http.Host = \"http-me.glitch.me\";\n        set req.backend = F_origin_0 /* http-me.glitch.me */;\n    } elsif (var.backend_id == 2) {\n        set req.http.Host = \"http-me.glitch.me\";\n        set req.backend = F_origin_1 /* http-me.glitch.me */;\n    } else {\n        set req.http.Host = \"http-me.glitch.me\";\n        set req.backend = F_origin_2 /* http-me.glitch.me */;\n    }\n\n    // Log the selected backend for debugging\n    log \"Selected backend: \" var.backend_id;\n    \n    \n    // Log incoming request URLs\n    log \"Received request: \" req.url;\n    \n    // Serve custom JSON response on /api/custom-page\n    if (req.url == \"/api/custom-page\") {\n        log \"Serving synthetic JSON response for /api/custom-page.\";\n        error 660 \"Custom Json\";\n    }\n    \n    // Block all requests to /blockme, except /blockme/test, with 403 Forbidden\n    if (req.url == \"/blockme\" || req.url ~ \"^/blockme/\") {\n        if (req.url != \"/blockme/test\") {\n            log \"Blocking request to \" req.url \" with 403.\";\n            set req.http.reason = \"blocked\";\n            error 403 \"Forbidden\";\n        }\n    }\n    \n    // Redirect /redirectme to https://www.ticketmaster.co.uk\n    if (req.url == \"/redirectme\") {\n        log \"Redirecting /redirectme to https://www.ticketmaster.co.uk.\";\n        error 750 \"Redirect\";\n    }\n    \n    // Rewrite the lang=us parameter to lang=us_en and store the original value in a custom header\n    if (req.url ~ \"lang=us\") {\n        log \"Rewriting lang=us to lang=us_en.\";\n        set req.url = regsuball(req.url, \"lang=us\", \"lang=us_en\");\n        set req.http.X-Lang = \"us\";\n    }",
+                "hash": "#",
+                "error": "    #FASTLY error\n\n    if (obj.status == 403) {\n        set obj.http.Content-Type = \"text/html\";\n        set obj.http.Reason = \"blocked\";\n        synthetic {\"\n<!DOCTYPE html>\n<html>\n<head>\n    <title>403 Forbidden</title>\n</head>\n<body>\n    <h1>403 Forbidden</h1>\n    <p>Access to this resource is forbidden.</p>\n</body>\n</html>\n\"};\n    }\n\n    if (obj.status == 660) {\n        set obj.status = 200;\n        set obj.http.Content-Type = \"application/json\";\n        synthetic {\"{ status: ok }\"};\n        return(deliver);\n    }\n    \n    if (obj.status == 750) {\n        set obj.status = 301;\n        set obj.http.Location = \"https://www.ticketmaster.co.uk\";\n        synthetic {\"\"};\n        return(deliver);\n    }\n    \n    if (obj.status == 503) {\n        // Check for stale content\n        if (stale.exists) {\n            log \"Serving stale content due to backend 503.\";\n            return(deliver_stale);\n        }\n        \n        // No stale content available, return friendly page with auto-redirect to ticketmaster.co.uk\n        set obj.status = 503;\n        set obj.http.Content-Type = \"text/html\";\n        synthetic {\"<html><head><meta http-equiv='refresh' content='5;url=https://www.ticketmaster.co.uk'/><title>Bad Server</title></head><body><h1>Sorry, the server is missbehaving, we will redirect you!</h1><p>Our service is currently down. You will be redirected to Ticketmaster in 5 seconds.</p></body></html>\"};\n        log \"No stale content available, returning friendly page with redirect.\";\n        return(deliver);\n    }",
+                "deliver": "#FASTLY deliver\n    \n    // If the lang parameter was rewritten, return the original value in the response header\n    if (req.http.X-Lang) {\n        log \"Returning original lang parameter in response header.\";\n        set resp.http.Lang = req.http.X-Lang;\n    }"
+              },
+              "srcVersion": 249,
+              "requests": [
+                {
+                  "enableCluster": true,
+                  "enableShield": false,
+                  "method": "GET",
+                  "path": "/api/custom-page",
+                  "followRedirects": false,
+                  "useFreshCache": false,
+                  "tests": "",
+                  "delay": 0
+                }
+              ],
+              "lastEditor": "7c4b3726d1556c2e11dfcaea59813bc7d2a1c70435b780037c1d200517f9e0a9"
+            }
+            </script>
+    </body>
+</html>
